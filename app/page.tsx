@@ -1,4 +1,4 @@
-import { ProjectWorkflowManagerComponent } from "@/components/project-workflow-manager"
+import { ProjectWorkflowManagerComponent } from "@/pages/project-workflow-manager"
 
 export default function Page() {
   return <ProjectWorkflowManagerComponent />

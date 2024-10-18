@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import Sidebar from "@/components/ui/Sidebar"
 
 type Task = {
   id: number
@@ -41,6 +42,11 @@ type Project = {
 }
 
 export function ProjectWorkflowManagerComponent() {
+  const links = [
+    { href: "/project-workflow-manager", label: "プロジェクトワークフロー", icon: <LayoutDashboard /> },
+    { href: "/SleekDashboard", label: "スリークダッシュボード", icon: <Briefcase /> },
+  ];
+
   const [project, setProject] = useState<Project>({
     id: 1,
     name: "ウェブサイトリニューアル",
@@ -138,42 +144,7 @@ export function ProjectWorkflowManagerComponent() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white shadow-md">
-        <div className="p-4">
-          <h2 className="text-2xl font-bold text-gray-800">WorkFlow</h2>
-        </div>
-        <nav className="mt-6">
-          <a className="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-100" href="#">
-            <LayoutDashboard className="mr-3 h-5 w-5" />
-            ダッシュボード
-          </a>
-          <a className="flex items-center mt-2 py-2 px-4 bg-gray-100 text-gray-900" href="#">
-            <Briefcase className="mr-3 h-5 w-5" />
-            プロジェクト
-          </a>
-          <a className="flex items-center mt-2 py-2 px-4 text-gray-600 hover:bg-gray-100" href="#">
-            <Settings className="mr-3 h-5 w-5" />
-            設定
-          </a>
-        </nav>
-        <div className="absolute bottom-0 w-64 p-4">
-          <div className="flex items-center">
-            <Avatar>
-              <AvatarImage src="/placeholder.svg?height=32&width=32" alt="User" />
-              <AvatarFallback>UN</AvatarFallback>
-            </Avatar>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-700">ユーザー名</p>
-              <p className="text-xs text-gray-500">user@example.com</p>
-            </div>
-          </div>
-          <Button variant="ghost" className="w-full mt-4 text-gray-600 hover:text-gray-900 hover:bg-gray-100">
-            <LogOut className="mr-2 h-4 w-4" /> ログアウト
-          </Button>
-        </div>
-      </aside>
-
+      <Sidebar links={links} />
       {/* Main content */}
       <main className="flex-1 p-8 overflow-auto">
         <div className="max-w-4xl mx-auto">
