@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from "react"
-import { LayoutDashboard, Briefcase, Settings, LogOut, PlusCircle, CheckCircle, Circle, Phone, FileText, Paperclip, ChevronUp, ChevronDown } from "lucide-react"
+import { LayoutDashboard, Briefcase, Settings, LogOut, PlusCircle, CheckCircle, Circle, Phone, FileText, Paperclip, ChevronUp, ChevronDown, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -42,6 +42,34 @@ type Project = {
   files: File[]
 }
 
+function FileUploadDialog({ onClose, onFileSelect }) {
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  const handleFileChange = (event) => {
+    setSelectedFile(event.target.files[0]);
+  };
+
+  const handleSubmit = () => {
+    if (selectedFile) {
+      onFileSelect(selectedFile);
+      onClose();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white p-4 rounded">
+        <h2 className="text-lg font-semibold mb-4">ファイルを選択</h2>
+        <input type="file" onChange={handleFileChange} />
+        <div className="mt-4 flex justify-end">
+          <button onClick={onClose} className="mr-2">キャンセル</button>
+          <button onClick={handleSubmit} disabled={!selectedFile}>追加</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProjectWorkflowManagerComponent() {
   const [project, setProject] = useState<Project>({
     id: 1,
@@ -69,6 +97,9 @@ export default function ProjectWorkflowManagerComponent() {
   const [newCategory, setNewCategory] = useState<string>("")
 
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null)
+
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [files, setFiles] = useState(project.files);
 
   useEffect(() => {
     updateOverallProgress()
@@ -159,6 +190,89 @@ export default function ProjectWorkflowManagerComponent() {
     }))
   }
 
+  const deleteNote = (noteId: number) => {
+    setProject(prev => ({
+      ...prev,
+      notes: prev.notes.filter(note => note.id !== noteId),
+    }))
+  }
+
+  const addFileToNote = (noteId: number) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.onchange = (e: any) => {
+      const file = e.target.files[0];
+      if (file) {
+        const fileUrl = URL.createObjectURL(file);
+        setProject(prev => ({
+          ...prev,
+          files: [...prev.files, { id: Date.now(), name: file.name, type: file.type, url: fileUrl, category: noteId.toString() }],
+        }));
+      }
+    };
+    input.click();
+  };
+
+  const handleFileSelect = (file) => {
+    const newFile = {
+      id: Date.now().toString(),
+      name: file.name,
+      url: URL.createObjectURL(file),
+      type: file.type,
+      category: newCategory // 選択されたカテゴリを使用
+    };
+    setFiles([...files, newFile]);
+  };
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const newFile = {
+        id: Date.now().toString(),
+        name: file.name,
+        url: URL.createObjectURL(file),
+        type: file.type,
+        category: newCategory // 選択されたカテゴリを使用
+      };
+      setFiles([...files, newFile]);
+    }
+  };
+
+  const moveFile = (fileId, direction) => {
+    const index = files.findIndex(file => file.id === fileId);
+    const newFiles = [...files];
+    const targetIndex = index + direction;
+
+    if (targetIndex >= 0 && targetIndex < newFiles.length) {
+      const targetCategory = newFiles[targetIndex].category;
+      newFiles[index].category = targetCategory;
+      [newFiles[index], newFiles[targetIndex]] = [newFiles[targetIndex], newFiles[index]];
+      setFiles(newFiles);
+    } else if (direction === 1 && index === newFiles.length - 1) {
+      // Move to the first file of the next category
+      const nextCategoryIndex = categories.findIndex(cat => cat === newFiles[index].category) + 1;
+      if (nextCategoryIndex < categories.length) {
+        newFiles[index].category = categories[nextCategoryIndex];
+        setFiles(newFiles);
+      }
+    }
+  };
+
+  const changeCategory = (fileId, newCategory) => {
+    setFiles(files.map(file => 
+      file.id === fileId ? { ...file, category: newCategory } : file
+    ));
+  };
+
+  const deleteFile = (fileId) => {
+    setFiles(files.filter(file => file.id !== fileId));
+  };
+
+  const deleteCategory = (category) => {
+    setCategories(categories.filter(cat => cat !== category));
+    setFiles(files.map(file => file.category === category ? { ...file, category: "" } : file));
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold text-gray-900 mb-4">{project.name}</h1>
@@ -237,17 +351,14 @@ export default function ProjectWorkflowManagerComponent() {
         </TabsContent>
         <TabsContent value="notes">
           <Card>
-            <CardHeader>
-              <CardTitle>メモ</CardTitle>
-            </CardHeader>
             <CardContent>
-              {/* 電話メモを先に表示 */}
+              <h3 className="text-lg font-semibold mb-2 mt-4">電話メモ</h3>
               {project.notes
                 .filter(note => note.type === 'call')
                 .map(note => (
                   <div key={note.id} className="mb-4 p-4 bg-white rounded-lg shadow">
                     <div className="flex items-center mb-2">
-                      <Phone className="mr-2 h-4 w-4" />
+                      <Phone className="mr-2 h-6 w-6" />
                       {editingNoteId === note.id ? (
                         <Input
                           value={note.title}
@@ -257,9 +368,23 @@ export default function ProjectWorkflowManagerComponent() {
                       ) : (
                         <span className="font-semibold">{note.title}</span>
                       )}
-                      <span className="ml-auto text-sm text-gray-500">{note.date}</span>
+                      <span className="ml-auto text-base text-gray-500"> 
+                        {editingNoteId === note.id ? (
+                          <Input
+                            type="date"
+                            value={note.date}
+                            onChange={(e) => updateNote(note.id, { date: e.target.value })}
+                            className="text-base"
+                          />
+                        ) : (
+                          note.date
+                        )}
+                      </span>
                       <Button variant="ghost" size="icon" onClick={() => setEditingNoteId(editingNoteId === note.id ? null : note.id)}>
                         {editingNoteId === note.id ? "保存" : "編集"}
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => deleteNote(note.id)}>
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                     {editingNoteId === note.id ? (
@@ -269,21 +394,38 @@ export default function ProjectWorkflowManagerComponent() {
                         className="text-gray-700"
                       />
                     ) : (
-                      <p className="text-gray-700">{note.content}</p>
+                      <p className="text-gray-700 whitespace-pre-wrap">{note.content}</p>
                     )}
+                    {/* ファイル名を表示し、リンクを追加 */}
+                    <ul className="mt-4"> {/* ここでマージンを追加 */}
+                      {project.files
+                        .filter(file => file.category === note.id.toString())
+                        .map(file => (
+                          <li key={file.id} className="flex items-center">
+                            <Paperclip className="mr-2 h-4 w-4 text-gray-500" />
+                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                              {file.name}
+                            </a>
+                          </li>
+                        ))}
+                    </ul>
+                    {/* 各メモにファイル添付ボタンを追加 */}
+                    <Button variant="outline" size="sm" className="mt-2" onClick={() => addFileToNote(note.id)}>
+                      ファイルを添付
+                    </Button>
                   </div>
                 ))}
               
               {/* 区切りを追加 */}
               <hr className="my-6" />
 
-              {/* 議事録を次に表示 */}
+              <h3 className="text-lg font-semibold mb-2">打合せ議事録</h3>
               {project.notes
                 .filter(note => note.type === 'meeting')
                 .map(note => (
                   <div key={note.id} className="mb-4 p-4 bg-white rounded-lg shadow">
                     <div className="flex items-center mb-2">
-                      <FileText className="mr-2 h-4 w-4" />
+                      <FileText className="mr-2 h-6 w-6" />
                       {editingNoteId === note.id ? (
                         <Input
                           value={note.title}
@@ -293,9 +435,23 @@ export default function ProjectWorkflowManagerComponent() {
                       ) : (
                         <span className="font-semibold">{note.title}</span>
                       )}
-                      <span className="ml-auto text-sm text-gray-500">{note.date}</span>
+                      <span className="ml-auto text-base text-gray-500"> 
+                        {editingNoteId === note.id ? (
+                          <Input
+                            type="date"
+                            value={note.date}
+                            onChange={(e) => updateNote(note.id, { date: e.target.value })}
+                            className="text-base"
+                          />
+                        ) : (
+                          note.date
+                        )}
+                      </span>
                       <Button variant="ghost" size="icon" onClick={() => setEditingNoteId(editingNoteId === note.id ? null : note.id)}>
                         {editingNoteId === note.id ? "保存" : "編集"}
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => deleteNote(note.id)}>
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                     {editingNoteId === note.id ? (
@@ -305,8 +461,24 @@ export default function ProjectWorkflowManagerComponent() {
                         className="text-gray-700"
                       />
                     ) : (
-                      <p className="text-gray-700">{note.content}</p>
+                      <p className="text-gray-700 whitespace-pre-wrap">{note.content}</p>
                     )}
+                    {/* ファイル名を表示し、リンクを追加 */}
+                    <ul className="mt-4"> {/* ここでマージンを追加 */}
+                      {project.files
+                        .filter(file => file.category === note.id.toString())
+                        .map(file => (
+                          <li key={file.id}>
+                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                              {file.name}
+                            </a>
+                          </li>
+                        ))}
+                    </ul>
+                    {/* 各メモにファイル添付ボタンを追 */}
+                    <Button variant="outline" size="sm" className="mt-2" onClick={() => addFileToNote(note.id)}>
+                      ファイルを添付
+                    </Button>
                   </div>
                 ))}
             </CardContent>
@@ -318,7 +490,7 @@ export default function ProjectWorkflowManagerComponent() {
               />
               <Textarea
                 placeholder="新しいメモを追加"
-                className="mb-2 w-full"
+                className="mb-2 w-full h-32"
                 id="new-note-content"
               />
               <div className="flex justify-between w-full">
@@ -344,7 +516,7 @@ export default function ProjectWorkflowManagerComponent() {
                     ;(document.getElementById('new-note-content') as HTMLTextAreaElement).value = ''
                   }
                 }}>
-                  <FileText className="mr-2 h-4 w-4" /> 議事録を追加
+                  <FileText className="mr-2 h-4 w-4" /> 議事録追加
                 </Button>
               </div>
             </CardFooter>
@@ -356,66 +528,87 @@ export default function ProjectWorkflowManagerComponent() {
               <CardTitle>ファイル</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="mb-4">
+              <ul className="space-y-2 mb-6">
+                {files
+                  .filter(file => file.category === "")
+                  .map((file, index) => (
+                    <li key={file.id} className="flex items-center">
+                      <Paperclip className="mr-2 h-4 w-4 text-gray-500" />
+                      <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                        {file.name}
+                      </a>
+                      <span className="ml-2 text-sm text-gray-500">({file.type})</span>
+                      <button onClick={() => moveFile(file.id, -1)} className="ml-2">↑</button>
+                      <button onClick={() => moveFile(file.id, 1)} className="ml-2">↓</button>
+                      <button onClick={() => deleteFile(file.id)} className="ml-2 text-red-500">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+              {categories.map((category) => {
+                const categoryFiles = files.filter(file => file.category === category);
+                if (categoryFiles.length === 0) return null;
+                return (
+                  <div key={category} className="mb-6">
+                    <h3 className="text-lg font-semibold flex items-center">
+                      {category}
+                      <button onClick={() => deleteCategory(category)} className="ml-2 text-gray-500 text-sm">
+                  削除
+                      </button>
+                    </h3>
+                    <ul className="space-y-2">
+                      {categoryFiles.map((file, index) => (
+                        <li key={file.id} className="flex items-center">
+                          <Paperclip className="mr-2 h-4 w-4 text-gray-500" />
+                          <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                            {file.name}
+                          </a>
+                          <span className="ml-2 text-sm text-gray-500">({file.type})</span>
+                          <button onClick={() => moveFile(file.id, -1)} className="ml-2">↑</button>
+                          <button onClick={() => moveFile(file.id, 1)} className="ml-2">↓</button>
+                          <button onClick={() => deleteFile(file.id)} className="ml-2 text-red-500">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+              <div className="mt-4 mb-4 flex items-center"> {/* マージンを追加 */}
+                <Button onClick={() => document.getElementById('fileInput').click()}>ファイルを追加</Button>
+                <select onChange={(e) => setNewCategory(e.target.value)} className="ml-4">
+                  <option value="">カテゴリを選択</option>
+                  {categories.map((category, idx) => (
+                    <option key={idx} value={category}>{category}</option>
+                  ))}
+                </select>
+                <input
+                  type="file"
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                  id="fileInput"
+                />
+              </div>
+              <div className="mt-8"> {/* 上にマージンを追加 */}
                 <Input
-                  placeholder="新しいカテゴリを追加"
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      addCategory()
-                    }
-                  }}
+                  placeholder="新しいカテゴリを追加"
                 />
                 <Button onClick={addCategory} className="ml-2">カテゴリを追加</Button>
               </div>
-              {categories.map(category => (
-                <div key={category} className="mb-4">
-                  <h3 className="text-lg font-semibold">{category}</h3>
-                  <ul className="space-y-2">
-                    {project.files.filter(file => file.category === category).map(file => (
-                      <li key={file.id} className="flex items-center">
-                        <Paperclip className="mr-2 h-4 w-4 text-gray-500" />
-                        <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
-                          {file.name}
-                        </a>
-                        <span className="ml-2 text-sm text-gray-500">({file.type})</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
             </CardContent>
-            <CardFooter>
-              <Input
-                type="file"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) {
-                    const fileUrl = URL.createObjectURL(file)
-                    const category = categories[0] || "default" // デフォルトカテゴリを設定
-                    addFile(file.name, file.type, fileUrl, category)
-                  }
-                }}
-              />
-              <select
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) {
-                    const fileUrl = URL.createObjectURL(file)
-                    addFile(file.name, file.type, fileUrl, e.target.value)
-                  }
-                }}
-                className="ml-2"
-              >
-                {categories.map(category => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
+      {isDialogOpen && (
+        <FileUploadDialog
+          onClose={() => setIsDialogOpen(false)}
+          onFileSelect={handleFileSelect}
+        />
+      )}
     </div>
   )
 }
