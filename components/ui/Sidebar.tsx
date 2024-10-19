@@ -1,3 +1,5 @@
+'use client'
+
 import Link from 'next/link';
 import { LayoutDashboard, Briefcase, Settings, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";

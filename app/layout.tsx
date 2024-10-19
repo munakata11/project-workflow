@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import Sidebar from "@/components/ui/Sidebar";
+import { LayoutDashboard, Briefcase } from "lucide-react";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -23,12 +25,22 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const links = [
+    { href: "/SleekDashboard", label: "ダッシュボード", icon: <Briefcase /> },
+    { href: "/project-workflow-manager", label: "プロジェクトワークフロー", icon: <LayoutDashboard /> },
+  ];
+
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <div className="flex h-screen bg-gray-50">
+          <Sidebar links={links} />
+          <main className="flex-1 p-8 overflow-auto">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   );
