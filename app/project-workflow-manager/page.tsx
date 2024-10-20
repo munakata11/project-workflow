@@ -16,6 +16,7 @@ type Task = {
   text: string
   completed: boolean
   percentage: number
+  subTasks?: Task[]
 }
 
 type Note = {
@@ -31,7 +32,7 @@ type File = {
   name: string
   type: string
   url: string
-  category: string // カテゴリを追加
+  category: string // カテゴリ追加
 }
 
 type Project = {
@@ -233,7 +234,7 @@ export default function ProjectWorkflowManagerComponent() {
         name: file.name,
         url: URL.createObjectURL(file),
         type: file.type,
-        category: newCategory // 選択されたカテ��を使用
+        category: newCategory // 選択されたカテを使用
       };
       setFiles([...files, newFile]);
     }
@@ -284,6 +285,53 @@ export default function ProjectWorkflowManagerComponent() {
   // 全体の合計パーセントを計算
   const totalPercentage = project.tasks.reduce((sum, task) => sum + task.percentage, 0);
 
+  // サブタスクを追加する関数
+  const addSubTask = (taskId: number) => {
+    const subTaskText = prompt("新しいサブタスクを入力してください:");
+    if (subTaskText) {
+      setProject(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(task =>
+          task.id === taskId
+            ? { ...task, subTasks: [...(task.subTasks || []), { id: Date.now(), text: subTaskText, completed: false }] }
+            : task
+        ),
+      }));
+    }
+  };
+
+  // サブタスクの完了状態を切り替える関数
+  const toggleSubTask = (taskId: number, subTaskId: number) => {
+    setProject(prev => ({
+      ...prev,
+      tasks: prev.tasks.map(task =>
+        task.id === taskId
+          ? {
+              ...task,
+              subTasks: task.subTasks.map(subTask =>
+                subTask.id === subTaskId ? { ...subTask, completed: !subTask.completed } : subTask
+              ),
+            }
+          : task
+      ),
+    }));
+  };
+
+  // サブタスクを削除する関数
+  const deleteSubTask = (taskId: number, subTaskId: number) => {
+    setProject(prev => ({
+      ...prev,
+      tasks: prev.tasks.map(task =>
+        task.id === taskId
+          ? {
+              ...task,
+              subTasks: task.subTasks.filter(subTask => subTask.id !== subTaskId),
+            }
+          : task
+      ),
+    }));
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold text-gray-900 mb-4">{project.name}</h1>
@@ -315,38 +363,62 @@ export default function ProjectWorkflowManagerComponent() {
             <CardContent>
               <ul className="space-y-4">
                 {project.tasks.map(task => (
-                  <li key={task.id} className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => toggleTask(task.id)}
-                        className={task.completed ? "text-green-500" : "text-gray-400"}
-                      >
-                        {task.completed ? <CheckCircle className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
-                      </Button>
-                      <span className={`ml-2 ${task.completed ? "line-through text-gray-500" : "text-gray-700"}`}>{task.text}</span>
+                  <li key={task.id} className="flex flex-col">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => toggleTask(task.id)}
+                          className={task.completed ? "text-green-500" : "text-gray-400"}
+                        >
+                          {task.completed ? <CheckCircle className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
+                        </Button>
+                        <span className={`ml-2 ${task.completed ? "line-through text-gray-500" : "text-gray-700"}`}>{task.text}</span>
+                        <button
+                          className="text-gray-500 text-sm ml-2"
+                          onClick={() => addSubTask(task.id)}
+                        >
+                          ＋タスク追加
+                        </button>
+                      </div>
+                      <div className="flex items-center">
+                        <Input
+                          type="number"
+                          value={task.percentage}
+                          onChange={(e) => adjustTaskPercentage(task.id, Number(e.target.value))}
+                          className="w-16 mr-2"
+                          min="0"
+                          max="100"
+                        />
+                        <span className="mr-2">%</span>
+                        <Button variant="outline" size="icon" onClick={() => adjustTaskPercentage(task.id, Math.max(0, task.percentage - 1))} className="mr-1">
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => adjustTaskPercentage(task.id, Math.min(100, task.percentage + 1))}>
+                          <ChevronUp className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)} className="ml-2">
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center">
-                      <Input
-                        type="number"
-                        value={task.percentage}
-                        onChange={(e) => adjustTaskPercentage(task.id, Number(e.target.value))}
-                        className="w-16 mr-2"
-                        min="0"
-                        max="100"
-                      />
-                      <span className="mr-2">%</span>
-                      <Button variant="outline" size="icon" onClick={() => adjustTaskPercentage(task.id, Math.max(0, task.percentage - 1))} className="mr-1">
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" onClick={() => adjustTaskPercentage(task.id, Math.min(100, task.percentage + 1))}>
-                        <ChevronUp className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)} className="ml-2">
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
+                    <ul className="ml-8 mt-2">
+                      {task.subTasks && task.subTasks.map(subTask => (
+                        <li key={subTask.id} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={subTask.completed}
+                            onChange={() => toggleSubTask(task.id, subTask.id)}
+                            className="mr-2"
+                          />
+                          <span className={subTask.completed ? "line-through text-gray-500" : "text-gray-700"}>{subTask.text}</span>
+                          <Button variant="ghost" size="icon" onClick={() => deleteSubTask(task.id, subTask.id)} className="ml-2">
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
                   </li>
                 ))}
               </ul>
