@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { useSearchParams } from 'next/navigation';
+import axios from 'axios'; // axiosをインポート
 
 type Task = {
   id: number
@@ -78,17 +78,23 @@ function FileUploadDialog({ onClose, onFileSelect }: { onClose: () => void, onFi
   );
 }
 
-export default function ProjectWorkflowManagerComponent() {
-  const searchParams = useSearchParams();
-  const id = searchParams.get('id');
+// コンポーネントの引数で 'params' を受け取るように修正
+type Props = {
+  params: {
+    id: string
+  }
+}
+
+export default function ProjectWorkflowManagerComponent({ params }: Props) {
+  const { id } = params; // 'id' を 'params' から取得
 
   const [project, setProject] = useState<Project>({
-    id: 1,
-    name: "ウェブサイトリニーアル",
-    company: "サンプル株式会社", // 会社名を追加
-    amountExcludingTax: 100000, // 税抜金額を追加
-    amountIncludingTax: 110000, // 税込金額を追加
-    duration: "2023年5月 - 2023年8月", // 期間を追加
+    id: Number(id), // 'id' を数値に変換して使用
+    name: "", // 初期値を空に設定
+    company: "サンプル株式会社",
+    amountExcludingTax: 100000,
+    amountIncludingTax: 110000,
+    duration: "2023年5月 - 2023年8月",
     tasks: [
       { id: 1, text: "要件定義", completed: false, percentage: 20 },
       { id: 2, text: "デザイン", completed: false, percentage: 30 },
@@ -100,10 +106,10 @@ export default function ProjectWorkflowManagerComponent() {
       { id: 2, type: 'meeting', title: "チーム内キックオフミーティング", content: "チーム内キックオフミーティング。役割分担決定。", date: "2023-05-03" },
     ],
     files: [
-      { id: 1, name: "要件定義書.pdf", type: "pdf", url: "/files/requirements.pdf" },
-      { id: 2, name: "ワイヤーフレーム.docuworks", type: "docuworks", url: "/files/wireframe.xdw" },
+      { id: 1, name: "要件定義書.pdf", type: "pdf", url: "/files/requirements.pdf", category: "" },
+      { id: 2, name: "ワイヤーフレーム.docuworks", type: "docuworks", url: "/files/wireframe.xdw", category: "" },
     ],
-  })
+  });
 
   const [overallProgress, setOverallProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -317,7 +323,7 @@ export default function ProjectWorkflowManagerComponent() {
 
   // サブタスクを追加る関数
   const addSubTask = (taskId: number) => {
-    const subTaskText = prompt("新しいサブタスクを入力してください:");
+    const subTaskText = prompt("新しいサタスクを入力してください:");
     if (subTaskText) {
       setProject(prev => ({
         ...prev,
@@ -347,7 +353,7 @@ export default function ProjectWorkflowManagerComponent() {
     }));
   };
 
-  // サブタスクを削除する関数
+  // ブタスクを削除する関数
   const deleteSubTask = (taskId: number, subTaskId: number) => {
     setProject(prev => ({
       ...prev,
@@ -365,8 +371,17 @@ export default function ProjectWorkflowManagerComponent() {
   // プロジェクトの取得処理を追加
   useEffect(() => {
     if (id) {
-      // IDに基づいてプロジェクトを取得するロジックを追加
-      // 例: fetchProjectById(id).then(setProject);
+      axios.get(`/api/projects/${id}`)
+        .then(response => {
+          const projectData = response.data;
+          setProject(prev => ({
+            ...prev,
+            ...projectData, // APIから取得したデータをすべて適用
+          }));
+        })
+        .catch(error => {
+          console.error("プロジェクトの取得に失敗しました:", error);
+        });
     }
   }, [id]);
 
@@ -526,10 +541,10 @@ export default function ProjectWorkflowManagerComponent() {
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </li>
-                      ))}
+                      ))} 
                     </ul>
                   </li>
-                ))}
+                ))} 
               </ul>
             </CardContent>
             <CardFooter>
@@ -662,7 +677,7 @@ export default function ProjectWorkflowManagerComponent() {
                     ) : (
                       <p className="text-gray-700 whitespace-pre-wrap">{note.content}</p>
                     )}
-                    {/* ファイル名を表示、リンクを追加 */}
+                    {/* ファイル名を表示、ンクを追 */}
                     <ul className="mt-4"> {/* ここでマージンを追加 */}
                       {project.files
                         .filter(file => file.category === note.id.toString())
@@ -753,7 +768,7 @@ export default function ProjectWorkflowManagerComponent() {
                     <h3 className="text-lg font-semibold flex items-center">
                       {category}
                       <button onClick={() => deleteCategory(category)} className="ml-2 text-gray-500 text-sm">
-                  削除
+                        削除
                       </button>
                     </h3>
                     <ul className="space-y-2">
