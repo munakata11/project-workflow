@@ -13,7 +13,7 @@ const Sidebar = ({ links = [] }: SidebarProps) => {
   return (
     <aside className="w-64 bg-white shadow-md">
       <div className="p-4">
-        <h2 className="text-2xl font-bold text-gray-800">WorkFlow</h2>
+        <h2 className="text-2xl font-bold text-gray-800">Project Manager</h2>
       </div>
       <nav className="mt-6">
         {links.map((link, index) => (

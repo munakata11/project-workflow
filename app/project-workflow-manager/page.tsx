@@ -38,6 +38,10 @@ type File = {
 type Project = {
   id: number
   name: string
+  company: string // 会社名を追加
+  amountExcludingTax: number // 税抜金額を追加
+  amountIncludingTax: number // 税込金額を追加
+  duration: string // 期間を追加
   tasks: Task[]
   notes: Note[]
   files: File[]
@@ -74,7 +78,11 @@ function FileUploadDialog({ onClose, onFileSelect }) {
 export default function ProjectWorkflowManagerComponent() {
   const [project, setProject] = useState<Project>({
     id: 1,
-    name: "ウェブサイトリニューアル",
+    name: "ウェブサイトリニーアル",
+    company: "サンプル株式会社", // 会社名を追加
+    amountExcludingTax: 100000, // 税抜金額を追加
+    amountIncludingTax: 110000, // 税込金額を追加
+    duration: "2023年5月 - 2023年8月", // 期間を追加
     tasks: [
       { id: 1, text: "要件定義", completed: false, percentage: 20 },
       { id: 2, text: "デザイン", completed: false, percentage: 30 },
@@ -101,6 +109,22 @@ export default function ProjectWorkflowManagerComponent() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [files, setFiles] = useState(project.files);
+
+  const [isEditing, setIsEditing] = useState(false);
+
+  const handleEditToggle = () => {
+    setIsEditing(!isEditing);
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setProject((prevProject) => {
+      const updatedProject = { ...prevProject, [field]: value };
+      if (field === 'amountExcludingTax') {
+        updatedProject.amountIncludingTax = (parseFloat(value) * 1.1).toFixed(2);
+      }
+      return updatedProject;
+    });
+  };
 
   useEffect(() => {
     updateOverallProgress()
@@ -285,7 +309,7 @@ export default function ProjectWorkflowManagerComponent() {
   // 全体の合計パーセントを計算
   const totalPercentage = project.tasks.reduce((sum, task) => sum + task.percentage, 0);
 
-  // サブタスクを追加する関数
+  // サブタスクを追加る関数
   const addSubTask = (taskId: number) => {
     const subTaskText = prompt("新しいサブタスクを入力してください:");
     if (subTaskText) {
@@ -348,12 +372,83 @@ export default function ProjectWorkflowManagerComponent() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <Tabs defaultValue="tasks">
+      <Tabs defaultValue="project">
         <TabsList className="mb-4">
+          <TabsTrigger value="project">プロジェクト概要</TabsTrigger>
           <TabsTrigger value="tasks">全体工程・タスク</TabsTrigger>
           <TabsTrigger value="notes">メモ</TabsTrigger>
           <TabsTrigger value="files">ファイル</TabsTrigger>
         </TabsList>
+        <TabsContent value="project">
+          <Card>
+            <CardHeader className="flex justify-between">
+              <CardTitle className="text-xl font-bold text-left">プロジェクト概要</CardTitle>
+              <button onClick={handleEditToggle} className="text-blue-500 ml-auto">
+                {isEditing ? '保存' : '編集'}
+              </button>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">プロジェクト名</label>
+                  {isEditing ? (
+                    <Input
+                      type="text"
+                      value={project.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                    />
+                  ) : (
+                    <p className="mt-1 pl-4">{project.name}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">受注会社名</label>
+                  {isEditing ? (
+                    <Input
+                      type="text"
+                      value={project.company}
+                      onChange={(e) => handleInputChange('company', e.target.value)}
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                    />
+                  ) : (
+                    <p className="mt-1 pl-4">{project.company}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">受注金額（税抜）</label>
+                  {isEditing ? (
+                    <Input
+                      type="number"
+                      value={project.amountExcludingTax}
+                      onChange={(e) => handleInputChange('amountExcludingTax', e.target.value)}
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                    />
+                  ) : (
+                    <p className="mt-1 pl-4">{Number(project.amountExcludingTax).toLocaleString()}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">受注金額（税込）</label>
+                  <p className="mt-1 pl-4">{Number(project.amountIncludingTax).toLocaleString()}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">設計工期</label>
+                  {isEditing ? (
+                    <Input
+                      type="date"
+                      value={project.duration}
+                      onChange={(e) => handleInputChange('duration', e.target.value)}
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                    />
+                  ) : (
+                    <p className="mt-1 pl-4">{project.duration}</p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
         <TabsContent value="tasks">
           <Card>
             <CardHeader>
