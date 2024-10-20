@@ -120,18 +120,19 @@ export default function ProjectWorkflowManagerComponent() {
     setOverallProgress(completedPercentage)
   }
 
-  const addTask = (taskText: string) => {
+  const addTask = (taskText: string, percentage: number) => {
     if (taskText.trim() !== "") {
-      const totalPercentage = project.tasks.reduce((sum, task) => sum + task.percentage, 0)
-      const remainingPercentage = 100 - totalPercentage
-      if (remainingPercentage > 0) {
-        setProject(prev => ({
-          ...prev,
-          tasks: [...prev.tasks, { id: Date.now(), text: taskText, completed: false, percentage: remainingPercentage }],
-        }))
-      } else {
-        setError("エラー：新しいタスクを追加するスペースがありません。")
-      }
+      const roundedPercentage = Math.round(percentage); // 四捨五入
+      const updatedTasks = project.tasks.map(task => {
+        const oldPercentage = Math.round(100 / project.tasks.length);
+        const newPercentage = Math.round(100 / (project.tasks.length + 1));
+        return { ...task, percentage: task.percentage === oldPercentage ? newPercentage : task.percentage };
+      });
+
+      setProject(prev => ({
+        ...prev,
+        tasks: [...updatedTasks, { id: Date.now(), text: taskText, completed: false, percentage: roundedPercentage }],
+      }));
     }
   }
 
@@ -232,7 +233,7 @@ export default function ProjectWorkflowManagerComponent() {
         name: file.name,
         url: URL.createObjectURL(file),
         type: file.type,
-        category: newCategory // 選択されたカテゴリを使用
+        category: newCategory // 選択されたカテ��を使用
       };
       setFiles([...files, newFile]);
     }
@@ -273,6 +274,16 @@ export default function ProjectWorkflowManagerComponent() {
     setFiles(files.map(file => file.category === category ? { ...file, category: "" } : file));
   };
 
+  const deleteTask = (taskId: number) => {
+    setProject(prev => ({
+      ...prev,
+      tasks: prev.tasks.filter(task => task.id !== taskId),
+    }));
+  }
+
+  // 全体の合計パーセントを計算
+  const totalPercentage = project.tasks.reduce((sum, task) => sum + task.percentage, 0);
+
   return (
     <div className="max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold text-gray-900 mb-4">{project.name}</h1>
@@ -284,21 +295,22 @@ export default function ProjectWorkflowManagerComponent() {
         </div>
       </div>
       {error && (
-        <Alert variant="destructive" className="mb-4">
+        <Alert variant="destructive" className="mb-4 mt-8"> {/* 下にマージンを追加 */}
           <AlertTitle>エラー</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
       <Tabs defaultValue="tasks">
         <TabsList className="mb-4">
-          <TabsTrigger value="tasks">タスク</TabsTrigger>
+          <TabsTrigger value="tasks">全体工程・タスク</TabsTrigger>
           <TabsTrigger value="notes">メモ</TabsTrigger>
           <TabsTrigger value="files">ファイル</TabsTrigger>
         </TabsList>
         <TabsContent value="tasks">
           <Card>
             <CardHeader>
-              <CardTitle>タスク</CardTitle>
+              <CardTitle className="text-xl">全体工程</CardTitle> {/* 見出しを少し小さく */}
+              <span className="text-blue-500">合計: {totalPercentage}%</span> {/* 合計パーセントを青字で表示 */}
             </CardHeader>
             <CardContent>
               <ul className="space-y-4">
@@ -331,6 +343,9 @@ export default function ProjectWorkflowManagerComponent() {
                       <Button variant="outline" size="icon" onClick={() => adjustTaskPercentage(task.id, Math.min(100, task.percentage + 1))}>
                         <ChevronUp className="h-4 w-4" />
                       </Button>
+                      <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)} className="ml-2">
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
                     </div>
                   </li>
                 ))}
@@ -338,21 +353,25 @@ export default function ProjectWorkflowManagerComponent() {
             </CardContent>
             <CardFooter>
               <Input
-                placeholder="新しいタスクを追加"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    addTask(e.currentTarget.value)
-                    e.currentTarget.value = ''
-                  }
-                }}
+                placeholder="新しい工程を追加"
+                id="new-task-input"
               />
+              <Button onClick={() => {
+                const taskText = (document.getElementById('new-task-input') as HTMLInputElement).value;
+                const totalTasks = project.tasks.length + 1;
+                const newPercentage = (100 / totalTasks).toFixed(2);
+                addTask(taskText, Number(newPercentage));
+                (document.getElementById('new-task-input') as HTMLInputElement).value = '';
+              }}>
+                追加
+              </Button>
             </CardFooter>
           </Card>
         </TabsContent>
         <TabsContent value="notes">
           <Card>
             <CardContent>
-              <h3 className="text-lg font-semibold mb-2 mt-4">電話メモ</h3>
+              <h3 className="text-xl font-semibold mb-2 mt-4">電話メモ</h3> {/* 見出しを少し小さく */}
               {project.notes
                 .filter(note => note.type === 'call')
                 .map(note => (
@@ -416,10 +435,9 @@ export default function ProjectWorkflowManagerComponent() {
                   </div>
                 ))}
               
-              {/* 区切りを追加 */}
               <hr className="my-6" />
 
-              <h3 className="text-lg font-semibold mb-2">打合せ議事録</h3>
+              <h3 className="text-xl font-semibold mb-2">打合せ議事録</h3> {/* 見出しを少し小さく */}
               {project.notes
                 .filter(note => note.type === 'meeting')
                 .map(note => (
@@ -463,7 +481,7 @@ export default function ProjectWorkflowManagerComponent() {
                     ) : (
                       <p className="text-gray-700 whitespace-pre-wrap">{note.content}</p>
                     )}
-                    {/* ファイル名を表示し、リンクを追加 */}
+                    {/* ファイル名を表示、リンクを追加 */}
                     <ul className="mt-4"> {/* ここでマージンを追加 */}
                       {project.files
                         .filter(file => file.category === note.id.toString())
@@ -525,7 +543,7 @@ export default function ProjectWorkflowManagerComponent() {
         <TabsContent value="files">
           <Card>
             <CardHeader>
-              <CardTitle>ファイル</CardTitle>
+              <CardTitle className="text-xl">ファイル</CardTitle> {/* 見出しを少し小さく */}
             </CardHeader>
             <CardContent>
               <ul className="space-y-2 mb-6">
