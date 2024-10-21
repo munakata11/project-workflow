@@ -26,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const links = [
-    { href: "/SleekDashboard", label: "ダッシュボード", icon: <Briefcase /> },
+    { href: "/", label: "ダッシュボード", icon: <Briefcase /> },
     { href: "/project-workflow-manager", label: "プロジェクトワークフロー", icon: <LayoutDashboard /> },
   ];
 
