@@ -17,10 +17,13 @@
     "axios": "^1.7.7",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "framer-motion": "^11.11.9",
     "lucide-react": "^0.453.0",
     "next": "^14.2.15",
     "react": "^18",
+    "react-datepicker": "^7.5.0",
     "react-dom": "^18",
+    "react-hot-toast": "^2.4.1",
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7"
   },
