@@ -470,7 +470,7 @@ export default function ProjectWorkflowManagerComponent() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700">受注金額（税込）</label>
                   <p className="mt-1 pl-4">
-                    ¥{Number(project.amountIncludingTax).toLocaleString()}
+                    ¥{Number(project.amountIncTax).toLocaleString()}
                   </p>
                 </div>
                 {/* 設計工期 */}

@@ -6,15 +6,17 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === 'GET') {
       res.status(200).json(projects);
     } else if (req.method === 'POST') {
-      const { name, progress, amountExcludingTax, startDate } = req.body; // 修正: amountExTax -> amountExcludingTax
+      const { name, company, progress, amountExcludingTax, amountIncTax, startDate } = req.body; // 修正: amountExTax -> amountExcludingTax
       if (!name || amountExcludingTax == null || !startDate) {
         return res.status(400).json({ message: '必須項目が不足しています' });
       }
       const newProject = {
         id: projects.length + 1,
         name,
+        company,
         progress: progress || 0,
         amountExcludingTax,
+        amountIncTax,
         startDate,
       };
       projects.push(newProject); // global.projectsを更新

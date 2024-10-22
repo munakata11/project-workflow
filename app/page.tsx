@@ -73,11 +73,14 @@ export default function SleekDashboard() {
   const handleSubmit = async (e) => {
     e.preventDefault(); // フォームのデフォルト動作を防止
 
+    const localDate = selectedDate ? new Date(selectedDate.getTime() - selectedDate.getTimezoneOffset() * 60000) : null;
     const newProjectData = {
       name: projectName,
+      company: companyName,
       progress: 0,
-      amountExcludingTax: parseFloat(amountExcludingTax), // 修正: amountExTax -> amountExcludingTax
-      startDate: selectedDate ? selectedDate.toISOString().split('T')[0] : null,
+      amountExcludingTax: parseFloat(amountExcludingTax), 
+      amountIncTax: parseFloat(amountIncTax), 
+      startDate: localDate ? localDate.toISOString().split('T')[0] : null,
     };
 
     try {
@@ -165,7 +168,7 @@ export default function SleekDashboard() {
                     />
                     <div className="flex space-x-4">
                       <FormField
-                        label="受注金額（税抜き）"
+                        label="受注金額（税抜）"
                         id="amountExcludingTax"
                         type="number"
                         value={amountExcludingTax}
@@ -185,7 +188,6 @@ export default function SleekDashboard() {
                       selectedDate={selectedDate}
                       onDateChange={(date) => setSelectedDate(date)}
                     />
-                    {/* 他のフォームフィールド */}
                   </form>
                 </CardContent>
                 <CardFooter className="px-6 pb-6 flex space-x-4">
