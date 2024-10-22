@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PlusCircle, ChevronRight, AlertCircle, CalendarIcon } from "lucide-react";
@@ -15,9 +15,9 @@ import 'react-datepicker/dist/react-datepicker.css';
 import Sidebar from '@/components/Sidebar';
 
 const initialProjects = [
-  { id: 1, name: "ウェブサイトリニューアル", progress: 70 },
-  { id: 2, name: "モバイルアプリ開発", progress: 30 },
-  { id: 3, name: "マーケティングキャンペーン", progress: 50 },
+  { id: 1, name: "ウェブサイトリニューアル", progress: 70, amountExcludingTax: 100000, startDate: "2023-01-01" },
+  { id: 2, name: "モバイルアプリ開発", progress: 30, amountExcludingTax: 200000, startDate: "2023-02-01" },
+  { id: 3, name: "マーケティングキャンペーン", progress: 50, amountExcludingTax: 300000, startDate: "2023-03-01" },
 ];
 
 function BasicDatePicker({ selectedDate, onDateChange }) {
@@ -40,62 +40,76 @@ export default function SleekDashboard() {
   const [projects, setProjects] = useState(initialProjects);
   const [showForm, setShowForm] = useState(false);
   const [projectName, setProjectName] = useState('');
-  const [amountExTax, setAmountExTax] = useState('');
+  const [amountExcludingTax, setAmountExcludingTax] = useState('');
   const [amountIncTax, setAmountIncTax] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [selectedDate, setSelectedDate] = useState(null);
   const [errors, setErrors] = useState({});
   const router = useRouter();
 
+  useEffect(() => {
+    // 初期プロジェクトをAPIから取得するロジックを追加
+    fetch('/api/projects')
+      .then(response => response.json())
+      .then(data => setProjects(data))
+      .catch(error => console.error('Error fetching projects:', error)); // エラーをコンソールに出力
+  }, []);
+
   const addProject = () => {
     setShowForm(true);
   };
 
-  const handleAddProject = (newProjectData) => {
-    const newProject = {
-      id: projects.length + 1,
-      name: newProjectData.projectName,
-      progress: 0,
-    };
-    setProjects([...projects, newProject]);
-    setShowForm(false);
-    toast.success('プロジェクトが正常に追加されました！', {
-      style: {
-        border: '1px solid #000',
-        padding: '16px',
-        color: '#000',
-        background: '#fff',
-      },
-      iconTheme: {
-        primary: '#000',
-        secondary: '#fff',
-      },
-    });
-    router.push(`/project-workflow-manager/${newProject.id}`);
+  const handleAmountExcludingTaxChange = (e) => {
+    const value = e.target.value;
+    setAmountExcludingTax(value);
+    const calculatedIncTax = value ? Math.round(parseFloat(value) * 1.1) : '';
+    setAmountIncTax(calculatedIncTax);
   };
 
   const handleCancel = () => {
     setShowForm(false);
   };
 
-  const handleAmountExTaxChange = (e) => {
-    const value = e.target.value;
-    setAmountExTax(value);
-    const calculatedIncTax = value ? Math.round(parseFloat(value) * 1.1) : '';
-    setAmountIncTax(calculatedIncTax);
-  };
+  const handleSubmit = async (e) => {
+    e.preventDefault(); // フォームのデフォルト動作を防止
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // フォームのバリデーションとプロジェクト追加のロジックをここに追加
-  }; // セミコロンを追加
+    const newProjectData = {
+      name: projectName,
+      progress: 0,
+      amountExcludingTax: parseFloat(amountExcludingTax), // 修正: amountExTax -> amountExcludingTax
+      startDate: selectedDate ? selectedDate.toISOString().split('T')[0] : null,
+    };
+
+    try {
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newProjectData),
+      });
+
+      if (response.ok) {
+        const newProject = await response.json();
+        setProjects([...projects, newProject]);
+        setShowForm(false);
+        toast.success('プロジェクトが正常に追加されました！');
+        router.push(`/project-workflow-manager/${newProject.id}`); // 新しいプロジェクトIDにリダイレクト
+      } else {
+        toast.error('プロジェクトの追加に失敗しました。');
+      }
+    } catch (error) {
+      console.error('Error submitting project:', error); // エラーをコンソールに出力
+      toast.error('プロジェクトの追加に失敗しました。');
+    }
+  };
 
   return (
     <div className="flex justify-center">
       <div className="w-full max-w-7xl p-8">
         <Sidebar />
         <div className="content">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8 text-left">プロジェクトダッシュボード</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">プロジェクトサマリー</h1>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map(project => (
               <Card key={project.id} className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-300">
@@ -117,7 +131,7 @@ export default function SleekDashboard() {
               </Card>
             ))}
           </div>
-          <div className="mt-8 flex justify-left">
+          <div className="mt-8 flex justify-center">
             <Button onClick={addProject} className="bg-gray-900 text-white hover:bg-gray-800">
               <PlusCircle className="mr-2 h-4 w-4" /> プロジェクトを追加
             </Button>
@@ -152,11 +166,11 @@ export default function SleekDashboard() {
                     <div className="flex space-x-4">
                       <FormField
                         label="受注金額（税抜き）"
-                        id="amountExTax"
+                        id="amountExcludingTax"
                         type="number"
-                        value={amountExTax}
-                        onChange={handleAmountExTaxChange}
-                        error={errors.amountExTax}
+                        value={amountExcludingTax}
+                        onChange={handleAmountExcludingTaxChange}
+                        error={errors.amountExcludingTax}
                       />
                       <FormField
                         label="受注金額（税込）"

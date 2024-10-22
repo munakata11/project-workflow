@@ -1,19 +1,24 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-
-// プロジェクト
-const projects = [
-  { id: 1, name: "要件定義書", description: "要件定義書のサンプルプロジェクト", progress: 70 },
-  { id: 2, name: "デザイン案", description: "クライアントへのデザイン案の提出", progress: 30 },
-  { id: 3, name: "フロントエンド実装", description: "フロントエンド実装の進捗", progress: 50 },
-];
+import { projects } from '../../../data/projects';
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { id } = req.query;
-  const project = projects.find(proj => proj.id === parseInt(id as string, 10));
+  try {
+    const { id } = req.query;
 
-  if (project) {
-    res.status(200).json(project);
-  } else {
-    res.status(404).json({ message: 'プロジェクトが見つかりませんでした' });
+    if (req.method === 'GET') {
+      const project = projects.find(p => p.id === parseInt(id as string, 10));
+
+      if (project) {
+        res.status(200).json(project);
+      } else {
+        res.status(404).json({ message: 'プロジェクトが見つかりません' });
+      }
+    } else {
+      res.setHeader('Allow', ['GET']);
+      res.status(405).end(`メソッド ${req.method} は許可されていません`);
+    }
+  } catch (error) {
+    console.error(error); // エラーをコンソールに出力
+    res.status(500).json({ message: 'サーバー内部エラー' });
   }
 }

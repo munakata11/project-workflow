@@ -1,16 +1,37 @@
 'use client'
 
 import { useState, useEffect } from "react"
-import { LayoutDashboard, Briefcase, Settings, LogOut, PlusCircle, CheckCircle, Circle, Phone, FileText, Paperclip, ChevronUp, ChevronDown, Trash2 } from "lucide-react"
+import {
+  LayoutDashboard,
+  Briefcase,
+  Settings,
+  LogOut,
+  PlusCircle,
+  CheckCircle,
+  Circle,
+  Phone,
+  FileText,
+  Paperclip,
+  ChevronUp,
+  ChevronDown,
+  Trash2,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import axios from 'axios'; // axiosをインポート
+import { useSearchParams, useParams } from 'next/navigation';
 
 type Task = {
   id: number
@@ -78,41 +99,14 @@ function FileUploadDialog({ onClose, onFileSelect }: { onClose: () => void, onFi
   );
 }
 
-// コンポーネントの引数で 'params' を受け取るように修正
-type Props = {
-  params: {
-    id: string
-  }
-}
+export default function ProjectWorkflowManagerComponent() {
+  const { id } = useParams(); // ルータからidを取得
 
-export default function ProjectWorkflowManagerComponent({ params }: Props) {
-  const { id } = params; // 'id' を 'params' から取得
-
-  const [project, setProject] = useState<Project>({
-    id: Number(id), // 'id' を数値に変換して使用
-    name: "", // 初期値を空に設定
-    company: "サンプル株式会社",
-    amountExcludingTax: 100000,
-    amountIncludingTax: 110000,
-    duration: "2023年5月 - 2023年8月",
-    tasks: [
-      { id: 1, text: "要件定義", completed: false, percentage: 20 },
-      { id: 2, text: "デザイン", completed: false, percentage: 30 },
-      { id: 3, text: "フロントエンド実装", completed: false, percentage: 25 },
-      { id: 4, text: "バックエンド開発", completed: false, percentage: 25 },
-    ],
-    notes: [
-      { id: 1, type: 'call', title: "初回電話", content: "クライアントとの初回電話。要件確認。", date: "2023-05-01" },
-      { id: 2, type: 'meeting', title: "チーム内キックオフミーティング", content: "チーム内キックオフミーティング。役割分担決定。", date: "2023-05-03" },
-    ],
-    files: [
-      { id: 1, name: "要件定義書.pdf", type: "pdf", url: "/files/requirements.pdf", category: "" },
-      { id: 2, name: "ワイヤーフレーム.docuworks", type: "docuworks", url: "/files/wireframe.xdw", category: "" },
-    ],
-  });
+  const [project, setProject] = useState<Project | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [overallProgress, setOverallProgress] = useState(0)
-  const [error, setError] = useState<string | null>(null)
 
   const [categories, setCategories] = useState<string[]>([])
   const [newCategory, setNewCategory] = useState<string>("")
@@ -120,7 +114,7 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null)
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [files, setFiles] = useState(project.files);
+  const [files, setFiles] = useState(project?.files || []);
 
   const [isEditing, setIsEditing] = useState(false);
 
@@ -128,25 +122,15 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
     setIsEditing(!isEditing);
   };
 
-  const handleInputChange = (field: string, value: string) => {
-    setProject((prevProject) => {
-      const updatedProject = { ...prevProject, [field]: value };
-      if (field === 'amountExcludingTax') {
-        updatedProject.amountIncludingTax = parseFloat((parseFloat(value) * 1.1).toFixed(2));
-      }
-      return updatedProject;
-    });
-  };
-
   useEffect(() => {
     updateOverallProgress()
-  }, [project.tasks])
+  }, [project?.tasks])
 
   const updateOverallProgress = () => {
-    const totalPercentage = project.tasks.reduce((sum, task) => sum + task.percentage, 0)
-    const completedPercentage = project.tasks
+    const totalPercentage = project?.tasks.reduce((sum, task) => sum + task.percentage, 0) || 0
+    const completedPercentage = project?.tasks
       .filter(task => task.completed)
-      .reduce((sum, task) => sum + task.percentage, 0)
+      .reduce((sum, task) => sum + task.percentage, 0) || 0
     
     if (totalPercentage > 100) {
       setError("エラー合計が100%を超えています。")
@@ -154,13 +138,16 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
       setError(null)
     }
 
-    setOverallProgress(completedPercentage)
+    setOverallProgress(Math.min(
+      Math.round((completedPercentage / totalPercentage) * 100),
+      100
+    ));
   }
 
   const addTask = (taskText: string, percentage: number) => {
     if (taskText.trim() !== "") {
       const roundedPercentage = Math.round(percentage); // 四捨五入
-      const updatedTasks = project.tasks.map(task => {
+      const updatedTasks = project?.tasks.map(task => {
         const oldPercentage = Math.round(100 / project.tasks.length);
         const newPercentage = Math.round(100 / (project.tasks.length + 1));
         return { ...task, percentage: task.percentage === oldPercentage ? newPercentage : task.percentage };
@@ -183,7 +170,7 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
   }
 
   const adjustTaskPercentage = (taskId: number, newPercentage: number) => {
-    const updatedTasks = project.tasks.map(task =>
+    const updatedTasks = project?.tasks.map(task =>
       task.id === taskId ? { ...task, percentage: newPercentage } : task
     )
     const totalPercentage = updatedTasks.reduce((sum, task) => sum + task.percentage, 0)
@@ -319,11 +306,11 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
   }
 
   // 全体の合計パーセントを計算
-  const totalPercentage = project.tasks.reduce((sum, task) => sum + task.percentage, 0);
+  const totalPercentage = project?.tasks.reduce((sum, task) => sum + task.percentage, 0) || 0;
 
-  // サブタスクを追加る関数
+  // サブタスクを追加する関数
   const addSubTask = (taskId: number) => {
-    const subTaskText = prompt("新しいサタスクを入力してください:");
+    const subTaskText = prompt("新しいサブタスクを入力してください:");
     if (subTaskText) {
       setProject(prev => ({
         ...prev,
@@ -353,7 +340,7 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
     }));
   };
 
-  // ブタスクを削除する関数
+  // サブタスクを削除する関数
   const deleteSubTask = (taskId: number, subTaskId: number) => {
     setProject(prev => ({
       ...prev,
@@ -371,19 +358,33 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
   // プロジェクトの取得処理を追加
   useEffect(() => {
     if (id) {
-      axios.get(`/api/projects/${id}`)
+      fetch(`/api/projects/${id}`)
         .then(response => {
-          const projectData = response.data;
-          setProject(prev => ({
-            ...prev,
-            ...projectData, // APIから取得したデータをすべて適用
-          }));
+          if (!response.ok) {
+            throw new Error('プロジェクトの取得に失敗しました');
+          }
+          return response.json();
         })
-        .catch(error => {
-          console.error("プロジェクトの取得に失敗しました:", error);
+        .then(data => {
+          setProject({
+            ...data,
+            tasks: data.tasks || [], // tasksが存在��ない場合は空配列を設定
+            notes: data.notes || [], // notesが存在しない場合は空配列を設定
+            files: data.files || [], // filesが存在しない場合は空配列を設定
+          });
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error('Error fetching project:', err);
+          setError(err.message);
+          setLoading(false);
         });
     }
   }, [id]);
+
+  if (loading) return <p>読み込み中...</p>;
+  if (error) return <p>エラー: {error}</p>;
+  if (!project) return <p>プロジェクトが見つかりません</p>;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -395,12 +396,14 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
           <span className="text-lg font-semibold">{overallProgress}%</span>
         </div>
       </div>
+      {/* エラー表示 */}
       {error && (
-        <Alert variant="destructive" className="mb-4 mt-8"> {/* 下にマージンを追加 */}
+        <Alert variant="destructive" className="mb-4 mt-8">
           <AlertTitle>エラー</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+      {/* タブ */}
       <Tabs defaultValue="project">
         <TabsList className="mb-4">
           <TabsTrigger value="project">プロジェクト概要</TabsTrigger>
@@ -408,6 +411,7 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
           <TabsTrigger value="notes">メモ</TabsTrigger>
           <TabsTrigger value="files">ファイル</TabsTrigger>
         </TabsList>
+        {/* プロジェクト概要タブ */}
         <TabsContent value="project">
           <Card>
             <CardHeader className="flex justify-between">
@@ -418,6 +422,7 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
+                {/* プロジェクト名 */}
                 <div>
                   <label className="block text-sm font-bold text-gray-700">プロジェクト名</label>
                   {isEditing ? (
@@ -431,6 +436,7 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
                     <p className="mt-1 pl-4">{project.name}</p>
                   )}
                 </div>
+                {/* 受注会社名 */}
                 <div>
                   <label className="block text-sm font-bold text-gray-700">受注会社名</label>
                   {isEditing ? (
@@ -444,6 +450,7 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
                     <p className="mt-1 pl-4">{project.company}</p>
                   )}
                 </div>
+                {/* 受注金額（税抜） */}
                 <div>
                   <label className="block text-sm font-bold text-gray-700">受注金額（税抜）</label>
                   {isEditing ? (
@@ -454,24 +461,30 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
                     />
                   ) : (
-                    <p className="mt-1 pl-4">{Number(project.amountExcludingTax).toLocaleString()}</p>
+                    <p className="mt-1 pl-4">
+                      ¥{Number(project.amountExcludingTax).toLocaleString()}
+                    </p>
                   )}
                 </div>
+                {/* 受注金額（税込） */}
                 <div>
                   <label className="block text-sm font-bold text-gray-700">受注金額（税込）</label>
-                  <p className="mt-1 pl-4">{Number(project.amountIncludingTax).toLocaleString()}</p>
+                  <p className="mt-1 pl-4">
+                    ¥{Number(project.amountIncludingTax).toLocaleString()}
+                  </p>
                 </div>
+                {/* 設計工期 */}
                 <div>
                   <label className="block text-sm font-bold text-gray-700">設計工期</label>
                   {isEditing ? (
                     <Input
-                      type="date"
+                      type="text"
                       value={project.duration}
                       onChange={(e) => handleInputChange('duration', e.target.value)}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
                     />
                   ) : (
-                    <p className="mt-1 pl-4">{project.duration}</p>
+                    <p className="mt-1 pl-4">{project.startDate}</p>
                   )}
                 </div>
               </div>
@@ -541,10 +554,10 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </li>
-                      ))} 
+                      ))}
                     </ul>
                   </li>
-                ))} 
+                ))}
               </ul>
             </CardContent>
             <CardFooter>
@@ -677,7 +690,7 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
                     ) : (
                       <p className="text-gray-700 whitespace-pre-wrap">{note.content}</p>
                     )}
-                    {/* ファイル名を表示、ンクを追 */}
+                    {/* ファイル名を表示、リンクを追加 */}
                     <ul className="mt-4"> {/* ここでマージンを追加 */}
                       {project.files
                         .filter(file => file.category === note.id.toString())
@@ -768,7 +781,7 @@ export default function ProjectWorkflowManagerComponent({ params }: Props) {
                     <h3 className="text-lg font-semibold flex items-center">
                       {category}
                       <button onClick={() => deleteCategory(category)} className="ml-2 text-gray-500 text-sm">
-                        削除
+                  削除
                       </button>
                     </h3>
                     <ul className="space-y-2">
