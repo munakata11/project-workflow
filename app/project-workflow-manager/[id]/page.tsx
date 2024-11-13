@@ -32,9 +32,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useSearchParams, useParams } from 'next/navigation';
+import { supabase } from '@/lib/supabase'
+import { useUser } from '@supabase/auth-helpers-react'
 
 type Task = {
-  id: number
+  id: string
   text: string
   completed: boolean
   percentage: number
@@ -42,29 +44,29 @@ type Task = {
 }
 
 type Note = {
-  id: number
+  id: string  // numberからstringに変更
   type: 'call' | 'meeting'
-  title: string // タイトルを追加
+  title: string
   content: string
   date: string
 }
 
-// タイプ定義の変更: 'File' → 'ProjectFile'
 type ProjectFile = {
-  id: number
+  id: string  // numberからstringに変更
   name: string
   type: string
   url: string
-  category: string // カテゴリ追加
+  category: string
 }
 
 // Project タイプ内の files を ProjectFile[] に変更
 type Project = {
-  id: number
+  id: string
+  user_id: string
   name: string
   company: string
-  amountExcludingTax: number
-  amountIncludingTax: number
+  amount_excluding_tax: number
+  amount_including_tax: number
   duration: string
   tasks: Task[]
   notes: Note[]
@@ -100,7 +102,7 @@ function FileUploadDialog({ onClose, onFileSelect }: { onClose: () => void, onFi
 }
 
 export default function ProjectWorkflowManagerComponent() {
-  const { id } = useParams(); // ルータからidを取得
+  const { id } = useParams() as { id: string }; // ルータからidを取得
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,7 +113,7 @@ export default function ProjectWorkflowManagerComponent() {
   const [categories, setCategories] = useState<string[]>([])
   const [newCategory, setNewCategory] = useState<string>("")
 
-  const [editingNoteId, setEditingNoteId] = useState<number | null>(null)
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [files, setFiles] = useState(project?.files || []);
@@ -144,44 +146,81 @@ export default function ProjectWorkflowManagerComponent() {
     ));
   }
 
-  const addTask = (taskText: string, percentage: number) => {
-    if (taskText.trim() !== "") {
-      const roundedPercentage = Math.round(percentage); // 四捨五入
-      const updatedTasks = project?.tasks.map(task => {
-        const oldPercentage = Math.round(100 / project.tasks.length);
-        const newPercentage = Math.round(100 / (project.tasks.length + 1));
-        return { ...task, percentage: task.percentage === oldPercentage ? newPercentage : task.percentage };
-      });
+  const addTask = async (taskText: string, percentage: number) => {
+    if (taskText.trim() !== "" && project) {
+      const { data: newTask, error } = await supabase
+        .from('tasks')
+        .insert([{
+          project_id: project.id,
+          text: taskText,
+          percentage: percentage,
+          completed: false
+        }])
+        .select()
+        .single()
 
-      setProject(prev => ({
-        ...prev,
-        tasks: [...updatedTasks, { id: Date.now(), text: taskText, completed: false, percentage: roundedPercentage }],
-      }));
+      if (error) {
+        setError(error.message)
+        return
+      }
+
+      if (newTask) {
+        setProject(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            tasks: [...prev.tasks, newTask as Task]
+          };
+        });
+      }
     }
   }
 
-  const toggleTask = (taskId: number) => {
+  const toggleTask = async (taskId: string) => {
+    const task = project?.tasks.find(t => t.id === taskId)
+    if (!task) return
+
+    const { error } = await supabase
+      .from('tasks')
+      .update({ completed: !task.completed })
+      .eq('id', taskId)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
     setProject(prev => ({
-      ...prev,
-      tasks: prev.tasks.map(task =>
-        task.id === taskId ? { ...task, completed: !task.completed } : task
-      ),
+      ...prev!,
+      tasks: prev!.tasks.map(t =>
+        t.id === taskId ? { ...t, completed: !t.completed } : t
+      )
     }))
   }
 
-  const adjustTaskPercentage = (taskId: number, newPercentage: number) => {
-    const updatedTasks = project?.tasks.map(task =>
-      task.id === taskId ? { ...task, percentage: newPercentage } : task
-    )
-    const totalPercentage = updatedTasks.reduce((sum, task) => sum + task.percentage, 0)
-    
-    if (totalPercentage <= 100) {
-      setProject(prev => ({ ...prev, tasks: updatedTasks }))
-      setError(null)
-    } else {
-      setError("エラー：合計が100%を超えています。")
+  const adjustTaskPercentage = async (taskId: string, newPercentage: number) => {
+    if (!project) return;
+
+    const { error } = await supabase
+      .from('tasks')
+      .update({ percentage: newPercentage })
+      .eq('id', taskId);
+
+    if (error) {
+      setError(error.message);
+      return;
     }
-  }
+
+    setProject(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        tasks: prev.tasks.map(task =>
+          task.id === taskId ? { ...task, percentage: newPercentage } : task
+        )
+      };
+    });
+  };
 
   const addNote = (type: 'call' | 'meeting', title: string, content: string, date: string) => {
     if (content.trim() !== "" && title.trim() !== "") {
@@ -192,7 +231,7 @@ export default function ProjectWorkflowManagerComponent() {
     }
   }
 
-  const updateNote = (noteId: number, updatedFields: Partial<Note>) => {
+  const updateNote = (noteId: string, updatedFields: Partial<Note>) => {
     setProject(prev => ({
       ...prev,
       notes: prev.notes.map(note =>
@@ -215,14 +254,14 @@ export default function ProjectWorkflowManagerComponent() {
     }))
   }
 
-  const deleteNote = (noteId: number) => {
+  const deleteNote = (noteId: string) => {
     setProject(prev => ({
       ...prev,
       notes: prev.notes.filter(note => note.id !== noteId),
     }))
   }
 
-  const addFileToNote = (noteId: number) => {
+  const addFileToNote = (noteId: string) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.onchange = (e: any) => {
@@ -231,7 +270,7 @@ export default function ProjectWorkflowManagerComponent() {
         const fileUrl = URL.createObjectURL(file);
         setProject(prev => ({
           ...prev,
-          files: [...prev.files, { id: Date.now(), name: file.name, type: file.type, url: fileUrl, category: noteId.toString() }],
+          files: [...prev.files, { id: Date.now(), name: file.name, type: file.type, url: fileUrl, category: noteId }],
         }));
       }
     };
@@ -257,13 +296,13 @@ export default function ProjectWorkflowManagerComponent() {
         name: file.name,
         url: URL.createObjectURL(file),
         type: file.type,
-        category: newCategory // 選択されたカテゴリを使用
+        category: newCategory // 選択されたテゴリを使用
       };
       setFiles([...files, newFile]);
     }
   };
 
-  const moveFile = (fileId: number, direction: number) => {
+  const moveFile = (fileId: string, direction: number) => {
     const index = files.findIndex(file => file.id === fileId);
     const newFiles = [...files];
     const targetIndex = index + direction;
@@ -283,13 +322,13 @@ export default function ProjectWorkflowManagerComponent() {
     }
   };
 
-  const changeCategory = (fileId: number, newCategory: string) => {
+  const changeCategory = (fileId: string, newCategory: string) => {
     setFiles(files.map(file => 
       file.id === fileId ? { ...file, category: newCategory } : file
     ));
   };
 
-  const deleteFile = (fileId: number) => {
+  const deleteFile = (fileId: string) => {
     setFiles(files.filter(file => file.id !== fileId));
   };
 
@@ -298,7 +337,7 @@ export default function ProjectWorkflowManagerComponent() {
     setFiles(files.map(file => file.category === category ? { ...file, category: "" } : file));
   };
 
-  const deleteTask = (taskId: number) => {
+  const deleteTask = (taskId: string) => {
     setProject(prev => ({
       ...prev,
       tasks: prev.tasks.filter(task => task.id !== taskId),
@@ -309,7 +348,7 @@ export default function ProjectWorkflowManagerComponent() {
   const totalPercentage = project?.tasks.reduce((sum, task) => sum + task.percentage, 0) || 0;
 
   // サブタスクを追加する関数
-  const addSubTask = (taskId: number) => {
+  const addSubTask = (taskId: string) => {
     const subTaskText = prompt("新しいサブタスクを入力してください:");
     if (subTaskText) {
       setProject(prev => ({
@@ -324,35 +363,67 @@ export default function ProjectWorkflowManagerComponent() {
   };
 
   // サブタスクの完了状態を切り替える関数
-  const toggleSubTask = (taskId: number, subTaskId: number) => {
-    setProject(prev => ({
-      ...prev,
-      tasks: prev.tasks.map(task =>
-        task.id === taskId
-          ? {
-              ...task,
-              subTasks: task.subTasks.map(subTask =>
-                subTask.id === subTaskId ? { ...subTask, completed: !subTask.completed } : subTask
-              ),
-            }
-          : task
-      ),
-    }));
+  const toggleSubTask = async (taskId: string, subTaskId: string) => {
+    const task = project?.tasks.find(t => t.id === taskId);
+    if (!task?.subTasks) return;
+
+    const subTask = task.subTasks.find(st => st.id === subTaskId);
+    if (!subTask) return;
+
+    const { error } = await supabase
+      .from('sub_tasks')
+      .update({ completed: !subTask.completed })
+      .eq('id', subTaskId);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setProject(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        tasks: prev.tasks.map(t =>
+          t.id === taskId
+            ? {
+                ...t,
+                subTasks: t.subTasks?.map(st =>
+                  st.id === subTaskId ? { ...st, completed: !st.completed } : st
+                )
+              }
+            : t
+        )
+      };
+    });
   };
 
   // サブタスクを削除する関数
-  const deleteSubTask = (taskId: number, subTaskId: number) => {
-    setProject(prev => ({
-      ...prev,
-      tasks: prev.tasks.map(task =>
-        task.id === taskId
-          ? {
-              ...task,
-              subTasks: task.subTasks.filter(subTask => subTask.id !== subTaskId),
-            }
-          : task
-      ),
-    }));
+  const deleteSubTask = async (taskId: string, subTaskId: string) => {
+    const { error } = await supabase
+      .from('sub_tasks')
+      .delete()
+      .eq('id', subTaskId);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setProject(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        tasks: prev.tasks.map(task =>
+          task.id === taskId
+            ? {
+                ...task,
+                subTasks: task.subTasks?.filter(st => st.id !== subTaskId)
+              }
+            : task
+        )
+      };
+    });
   };
 
   // プロジェクトの取得処理を追加
@@ -368,7 +439,7 @@ export default function ProjectWorkflowManagerComponent() {
         .then(data => {
           setProject({
             ...data,
-            tasks: data.tasks || [], // tasksが存在��ない場合は空配列を設定
+            tasks: data.tasks || [], // tasksが存在ない場合は空配列を設定
             notes: data.notes || [], // notesが存在しない場合は空配列を設定
             files: data.files || [], // filesが存在しない場合は空配列を設定
           });
@@ -381,6 +452,26 @@ export default function ProjectWorkflowManagerComponent() {
         });
     }
   }, [id]);
+
+  // 既存のuseEffect内に追加
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        const { data, error } = await supabase.from('projects').select('*').limit(1)
+        if (error) {
+          console.error('Supabase connection error:', error)
+          setError('データベース接続エラー: ' + error.message)
+        } else {
+          console.log('Supabase connection successful:', data)
+        }
+      } catch (err) {
+        console.error('Error testing connection:', err)
+        setError('接続テストエラー')
+      }
+    }
+
+    testConnection()
+  }, [])
 
   if (loading) return <p>読み込み中...</p>;
   if (error) return <p>エラー: {error}</p>;
@@ -627,7 +718,7 @@ export default function ProjectWorkflowManagerComponent() {
                     {/* ファイル名を表示し、リンクを追加 */}
                     <ul className="mt-4"> {/* ここでマージンを追加 */}
                       {project.files
-                        .filter(file => file.category === note.id.toString())
+                        .filter(file => file.category === note.id)
                         .map(file => (
                           <li key={file.id} className="flex items-center">
                             <Paperclip className="mr-2 h-4 w-4 text-gray-500" />
@@ -693,7 +784,7 @@ export default function ProjectWorkflowManagerComponent() {
                     {/* ファイル名を表示、リンクを追加 */}
                     <ul className="mt-4"> {/* ここでマージンを追加 */}
                       {project.files
-                        .filter(file => file.category === note.id.toString())
+                        .filter(file => file.category === note.id)
                         .map(file => (
                           <li key={file.id}>
                             <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
@@ -738,7 +829,9 @@ export default function ProjectWorkflowManagerComponent() {
                   const content = (document.getElementById('new-note-content') as HTMLTextAreaElement).value
                   const date = new Date().toISOString().split('T')[0]
                   if (title && content) {
-                    addNote('meeting', title, content, date)
+                    
+                    
+                                        addNote('meeting', title, content, date)
                     ;(document.getElementById('new-note-title') as HTMLInputElement).value = ''
                     ;(document.getElementById('new-note-content') as HTMLTextAreaElement).value = ''
                   }

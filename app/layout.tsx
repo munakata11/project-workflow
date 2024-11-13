@@ -22,16 +22,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   const links = [
     { href: "/", label: "ダッシュボード", icon: <Briefcase /> },
     { href: "/project-workflow-manager", label: "プロジェクトワークフロー", icon: <LayoutDashboard /> },
   ];
 
   return (
-    <html lang="en">
+    <html lang="ja">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
